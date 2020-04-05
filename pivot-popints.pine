@@ -1,0 +1,103 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © LonesomeTheBlue
+
+//@version=4
+study("Price Change Rate by Pivot Points - Dynamic", overlay=true, max_bars_back = 2000)
+prd = input(defval = 30, title="Pivot Point Period", minval = 5, maxval = 100)
+showpivot = input(defval = true, title="Show Pivot Points")
+showret = input(defval = true, title="Show retracement")
+showprice = input(defval = false, title="Show Prices")
+showline = input(defval = true, title="Show Lines")
+showoncurr = input(defval = false, title="Show Label on current High/Low")
+
+
+float ph = na, float pl = na
+ph := pivothigh(prd, prd)
+pl := pivotlow(prd, prd)
+
+plotshape(ph and showpivot, text="H",  style=shape.labeldown, color=na, textcolor=color.blue, location=location.abovebar, transp=0, offset = -prd)
+plotshape(pl and showpivot, text="L",  style=shape.labeldown, color=na, textcolor=color.blue, location=location.belowbar, transp=0, offset = -prd)
+
+_highest(len) =>
+    _hi = high
+    _hloc = 0
+    for i = 1 to len -1 
+        if na(high[i])
+            break
+        if nz(high[i]) > _hi
+            _hi := nz(high[i])
+            _hloc := i
+    [_hi, _hloc]
+
+_lowest(len) =>
+    _lo = low
+    _hloc = 0
+    for i = 1 to len -1
+        if na(low[i])
+            break
+        if nz(low[i]) < _lo
+            _lo := nz(low[i])
+            _hloc := i
+    [_lo, _hloc]
+    
+
+hcont = true
+hcont := pl ? false : nz(hcont[1], true)
+lcont = true
+lcont := ph ? false : nz(lcont[1], true)
+
+float lastphi = na, float lastplo = na
+hiloc = 0, loloc = 0
+lastphi := nz(lastphi[1])
+lastplo := nz(lastplo[1])
+hiloc := nz(hiloc[1]) + 1
+loloc := nz(loloc[1]) + 1
+hchg = false
+if ph
+    if (hcont and lastphi != 0 and ph > lastphi) or not hcont
+        hchg := (hcont and lastphi != 0 and ph > lastphi)
+        lastphi := ph
+        hiloc := prd
+        hcont := true
+
+lchg = false
+if pl
+    if (lcont and lastplo != 0 and pl < lastplo) or not lcont
+        lchg := (lcont and lastplo != 0 and pl < lastplo)
+        lastplo := pl
+        loloc := prd
+        lcont := true
+
+[lwd, h_locd] = _lowest(hiloc)
+var line lnd = na
+var label lbd = na
+if hiloc != 0 and lastphi != 0
+    if change(lastphi) == 0 or hchg
+        line.delete(lnd)
+        label.delete(lbd)
+    if showline
+        lnd := line.new(bar_index - hiloc, lastphi,  showoncurr ? bar_index - h_locd : bar_index - hiloc, lwd, color = color.red, style = line.style_arrow_right)
+    prctxt = showprice ? tostring(lastphi) + "\n" + tostring(lwd) + "\n" : ""
+    ret = ""
+    ret := ret[1]
+    ret := showret ? hcont ? tostring((lastphi - lwd) / (lastphi - lastplo), '#.###')  + "\n" : ret : ""
+    txt =  prctxt + ret + "-% " +  tostring(((lastphi - lwd) / lastphi) * 100, '#.#') 
+    lbd := label.new(showoncurr ? bar_index - h_locd : bar_index - hiloc, lwd, text = txt, color = color.red, textcolor = color.white, style = label.style_label_up)
+
+
+[lwu, h_locu] = _highest(loloc)
+var line lnu = na
+var label lbu = na
+if loloc != 0 and lastplo != 0
+    if change(lastplo) == 0 or lchg
+        line.delete(lnu)
+        label.delete(lbu)
+    if showline
+        lnu := line.new(bar_index - loloc, lastplo, showoncurr ? bar_index - h_locu : bar_index - loloc, lwu, color = color.lime, style = line.style_arrow_right)
+    prctxt = showprice ? tostring(lastplo) + "\n" + tostring(lwu) + "\n" : ""
+    ret = ""
+    ret := ret[1]
+    ret := showret ? lcont ? tostring((lwu - lastplo) / (lastphi - lastplo), '#.###')  + "\n" : ret : ""
+    txt = prctxt + ret + "+% " + tostring(((lwu - lastplo) / lastplo) * 100, '#.#') 
+    lbu := label.new(showoncurr ? bar_index - h_locu : bar_index - loloc, lwu, text = txt, color = color.lime, textcolor = color.black, style = label.style_label_down)
+    
