@@ -1,0 +1,86 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Greeffer
+// github.com/modster or modster.github.io
+// Trading BTCUSDT 15 minute time frame on Binance Spot Exchange yeiled 547% return in backtests
+
+//@version=4
+
+// S t u d y
+// study('VOL/BBW/60 Study', 'VOL/BBW/RSI/1 Strategy', overlay=true, precision=4)
+
+// S t r a t e g y
+strategy("VOL/BBW/RSI/15 Strategy", "VOL/BBW/RSI/15 Strategy", true, format=format.inherit, 
+     scale=scale.right, precision=5, pyramiding=10, default_qty_type=strategy.percent_of_equity,
+     default_qty_value=10, initial_capital=100000, currency=currency.USD,
+     commission_type=strategy.commission.percent, commission_value=0.075,
+     process_orders_on_close=true, calc_on_every_tick=false, max_bars_back=300)
+// strategy(title, shorttitle, overlay, format, precision, scale, pyramiding, calc_on_order_fills, calc_on_every_tick, max_bars_back, backtest_fill_limits_assumption, default_qty_type, default_qty_value, initial_capital, currency, slippage, commission_type, commission_value, process_orders_on_close, close_entries_rule)
+
+// V a r i a b l e s
+source = input(close, title="RSI Source")
+sell = input(title="Sell", defval=75, minval=0, maxval=100)
+buy = input(title="Buy", defval=25, minval=0, maxval=100)
+length = input(title="Length", defval=14, minval=1, maxval=500)
+volMA = sma(volume,7)
+showMA = input(true)
+
+
+// V o l u m e
+barColorsOnPrevClose = input(title="Color bars based on previous close", type=input.bool, defval=false)
+palette = barColorsOnPrevClose ? close[1] > close ? color.red : color.green : open > close ? color.red : color.green
+plot(volume, color = palette, style=plot.style_columns, title="Volume", display=display.none)
+plot(showMA ? sma(volume,20) : na, style=plot.style_area, color=color.blue, display=display.none)
+
+// S t o c h   R S I 
+smoothK = input(3, minval=1) // <-----------------------------------------------
+smoothD = input(3, minval=1) // <-----------------------------------------------
+lengthRSI = input(14, minval=1)
+lengthStoch = input(14, minval=1)
+
+rsi1 = rsi(source, lengthRSI)
+k = sma(stoch(rsi1, rsi1, rsi1, lengthStoch), smoothK)
+d = sma(k, smoothD)
+//plot(k, color=color.blue)
+//plot(d, color=color.orange)
+//h0 = hline(80)
+//h1 = hline(20)
+//fill(h0, h1, color=color.purple, transp=80, display=display.none)
+
+// B o l l i n g e r   B a n d s 
+[middle, upper, lower] = bb(source, length, 2.2)
+plot(middle, title="middle", color=color.red, linewidth=2, style=plot.style_line, transp=70)
+plot(upper, title="upper", color=color.green, linewidth=2, style=plot.style_line, transp=70)
+plot(lower, title="lower", color=color.green,  linewidth=2, style=plot.style_line, transp=70)
+
+// B o l l i n g e r  B a n d  W i d t h 
+bbW = bbw(source, length, 2.2)
+plot(bbW, title="bbWidth", color=color.orange, display=display.none)
+
+//  C o n d i t i o n s
+buyCondition = bbW<0.022 and volume>=volMA
+//buyCondition = crossover(k, d) and k<25
+//buyCondition = K>D and rsi<60 and bbw < 0.022
+sellCondition = crossover(close, upper)
+stopCondition = crossunder(source, middle) and bbW > 0.05
+
+if(stopCondition)
+    strategy.close("long", when=strategy.position_size > 0, comment="stop", qty_percent=100)
+
+if(buyCondition)
+    strategy.entry("long", strategy.long, qty=100, stop=lower, oca_name="long0", oca_type=strategy.oca.reduce, when=strategy.position_size <= 0)
+
+if(sellCondition)
+    strategy.order("short", strategy.short, qty=10, stop=upper, oca_name="long0", oca_type=strategy.oca.reduce, when=strategy.position_size > 0)
+    // strategy.order("short", strategy.short, qty=20, stop=upper, oca_name="long0", oca_type=strategy.oca.reduce, when=rsi1>=80)
+    // strategy.order("short", strategy.short, qty=10, stop=upper, oca_name="long0", oca_type=strategy.oca.reduce, when=strategy.position_size>40)
+
+// B U Y
+//alertcondition(buyCondition, title='Buy', message='{"direction":"buy","close":"{{close}}","time":"{{time}}"}')
+//alertcondition(crossunder(myRsi, buy) and crossunder(close, lower), title='Buy', message='{"direction":"buy","ticker":"{{ticker}}","frame":"1minute","close":"{{close}}","time":"{{time}}"}')
+
+// S E L L
+//alertcondition(sellCondition, title='Sell', message='{"direction":"sell","close":"{{close}}","time":"{{time}}"}')
+//alertcondition(crossover(myRsi, sell) and crossover(close, upper), title='Sell', message='{"direction":"sell","ticker":"{{ticker}}","frame":"1minute","close":"{{close}}","time":"{{time}}"}')
+
+// S T O P
+//alertcondition(stopCondition, title='Stop', message='{"direction":"stop","close":"{{close}}","time":"{{time}}"}')
