@@ -1,0 +1,52 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Greeffer
+
+//@version=4
+strategy("RSI/BB 1minute Study", "BBW/RSI/1m", false, format=format.inherit, 
+     scale=scale.right, precision=5, pyramiding=4, default_qty_type=strategy.cash,
+     default_qty_value=20, initial_capital=1000, currency=currency.USD,
+     commission_type=strategy.commission.percent, commission_value=0.075,
+     process_orders_on_close=false, calc_on_every_tick=false)
+
+// R S I
+source = close
+sell = input(title="Sell", defval=75, minval=0, maxval=100)
+buy = input(title="Buy", defval=34, minval=0, maxval=100)
+length = input(title="Length", defval=14, minval=1, maxval=500)
+myRsi = rsi(source, length)
+plot(myRsi, title="myRsi", color=color.blue, linewidth=2, style=plot.style_line, transp=70)
+hline(buy, title='buy', color=color.red, linestyle=hline.style_dotted, linewidth=1)
+hline(sell, title='sell', color=color.red, linestyle=hline.style_dotted, linewidth=1)
+
+// B o l i n g e r   B a n d s 
+//bBands = bb(close, length, mult)
+[middle, upper, lower] = bb(source, length, 2)
+plot(middle, title="middle", color=color.red, display=display.none)
+plot(upper, title="upper", color=color.green, display=display.none)
+plot(lower, title="lower", color=color.green, display=display.none)
+
+// B o l l i n g e r  B a n d  W i d t h 
+bbWidth = bbw(source, length, 2)
+plot(bbWidth, title="bbWidth", color=color.orange, display=display.none)
+
+// S t r a t e g i e s
+//if(bbWidth<0.004)
+if (crossunder(myRsi, buy) and cross(source, lower))
+    //strategy.entry(id, long, qty, limit, stop, oca_name, oca_type, comment, when)
+    strategy.entry("long0", strategy.long, 100, stop=strategy.position_avg_price +
+         strategy.position_avg_price*0.1, oca_name="long0",
+         oca_type=strategy.oca.reduce, when=strategy.position_size <= 0)
+    strategy.exit("long0", oca_name="long0", qty_percent=20, stop=strategy.position_avg_price +
+         strategy.position_avg_price*0.1, trail_price=upper, trail_offset=2, when=strategy.position_size > 0)
+
+if (crossover(myRsi, sell) and cross(source, upper))
+    //strategy.entry(id, long, qty, limit, stop, oca_name, oca_type, comment, when)
+    strategy.entry("short0", strategy.short, 100, stop=strategy.position_avg_price +
+         strategy.position_avg_price*0.1, oca_name="long0", oca_type=strategy.oca.reduce,
+         when=strategy.position_size > 0)
+    strategy.exit("short0", oca_name="long0", qty_percent=20, stop=strategy.position_avg_price +
+         strategy.position_avg_price*0.1, trail_price=lower, trail_offset=2, when=strategy.position_size > 0)
+  
+// A l e r t c o n d i t i o n s 
+//alertcondition(crossunder(myRsi, buy) and crossunder(close, lower), title='Buy', message='{"direction":"buy","ticker":"{{ticker}}","frame":"1minute","close":"{{close}}","time":"{{time}}"}')
+//alertcondition(crossover(myRsi, sell) and crossover(close, upper), title='Sell', message='{"direction":"sell","ticker":"{{ticker}}","frame":"1minute","close":"{{close}}","time":"{{time}}"}')

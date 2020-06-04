@@ -1,0 +1,48 @@
+//@version=4
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © Greeffer
+strategy("Greeffer RSI Strategy", "Greeffer", true, format=format.volume, scale=scale.right, precision=0, pyramiding=5, default_qty_type=strategy.percent_of_equity, default_qty_value=2, initial_capital=100000, currency=currency.USD, commission_type=strategy.commission.percent, commission_value=0.075, process_orders_on_close=true)
+
+source = close
+length = input(20, minval=1)
+mult = input(2.0, minval=0.001, maxval=50)
+
+basis = sma(source, length)
+dev = mult * stdev(source, length)
+
+upper = basis + dev
+lower = basis - dev
+
+buyEntry = crossover(source, lower)
+sellEntry = crossunder(source, upper)
+
+// R S I
+myRsi = rsi(close, 14)
+//plot(myRsi, title="myRsi", color=color.blue, linewidth=2, style=plot.style_line, transp=70)
+//hline(31, title='oversold', color=color.red, linestyle=hline.style_dotted, linewidth=1)
+//hline(69, title='overbought', color=color.red, linestyle=hline.style_dotted, linewidth=1)
+
+if (crossover(source, lower))
+    strategy.entry("BBandRsiLE", strategy.long, stop=lower, oca_name="BollingerBands", oca_type=strategy.oca.cancel, comment="BBandLE")
+else
+    strategy.cancel(id="BBandLE")
+
+if (crossunder(source, upper))
+    strategy.entry("BBandSE", strategy.short, stop=upper, oca_name="BollingerBands", oca_type=strategy.oca.cancel, comment="BBandSE")
+else
+    strategy.cancel(id="BBandSE")
+
+//plot(strategy.equity, title="equity", color=color.red, linewidth=2, style=plot.style_areabr)
+
+// L o n g  C o n d i t i o n
+longCondition = myRsi <= 29 and close > lower
+
+if (longCondition)
+    strategy.entry("RsiBuy", true, 2, oca_name="Rsi069", oca_type=strategy.oca.reduce)
+    // strategy.entry("RsiBuy", true, 2)
+    // strategy.entry("RsiBuy", true, 1, limit, stop, oca_name="Rsi069", oca_type=strategy.oca.reduce, comment="rsiLong", when=open > high[1])
+
+// S h o r t  C o n d i t i o n
+shortCondition = myRsi >= 70
+if (shortCondition)
+    strategy.entry("Rsi Sell", false, 2,2, oca_name="Rsi069", oca_type=strategy.oca.reduce)
